@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Vistara Tech Bills",
+    "slug": "r777-garage",
+    "version": "1.6",
+    "orientation": "portrait",
+    "icon": "./assets/images/ragu-logo.png",
+    "scheme": "raguautoworks",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/ragu-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0F0F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.raguautoworks",
+      "buildNumber": "1.6.0",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.raguautoworks",
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0F0F",
+        "foregroundImage": "./assets/images/ragu-logo.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-speech-recognition",
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "origin": "https://replit.com/"
+      },
+      "privacyPolicyUrl": "https://example.com/privacy-policy",
+      "eas": {
+        "projectId": "766b9fd6-7b9f-422f-a2c8-549570a27827"
+      }
+    }
+  }
+}

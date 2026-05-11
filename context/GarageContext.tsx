@@ -1,0 +1,326 @@
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export type SparePart = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  brand: string;
+  image?: any;
+};
+
+export type CartItem = SparePart & { quantity: number };
+
+export type LabourItem = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+export type BusinessDetails = {
+  ownerName: string;
+  shopName: string;
+  shopAddress: string;
+  phoneNumbers: string;
+  instagramId: string;
+  shopLogo?: string;
+  shopDescription?: string;
+};
+
+type GarageContextType = {
+  cart: CartItem[];
+  addToCart: (part: SparePart) => void;
+  decreaseQuantity: (id: string) => void;
+  removeFromCart: (id: string) => void;
+  clearCart: () => void;
+  cartTotal: number;
+  advanceAmount: number;
+  setAdvanceAmount: (amount: number) => void;
+  labourItems: LabourItem[];
+  labourTotal: number;
+  addLabour: (item: LabourItem) => void;
+  removeLabour: (id: string) => void;
+  updatePartPrice: (id: string, price: number) => void;
+  updateLabourPrice: (id: string, price: number) => void;
+  finalizeBill: () => Promise<void>;
+  grandTotal: number;
+  finalBalance: number;
+  customerName: string;
+  setCustomerName: (name: string) => void;
+  vehicleNumber: string;
+  setVehicleNumber: (num: string) => void;
+  resetGarage: () => void;
+  currentBillId: string | null;
+  lastMeter: string;
+  setLastMeter: (val: string) => void;
+  nextMeter: string;
+  setNextMeter: (val: string) => void;
+  loadBill: (bill: any) => void;
+  nextBillNumber: number;
+  businessDetails: BusinessDetails;
+  updateBusinessDetails: (details: BusinessDetails) => Promise<void>;
+};
+
+const GarageContext = createContext<GarageContextType | null>(null);
+
+export function GarageProvider({ children }: { children: ReactNode }) {
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [labourItems, setLabourItems] = useState<LabourItem[]>([
+    { id: "labour-1", name: "Labour", price: 300 },
+  ]);
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [customerName, setCustomerName] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [currentBillId, setCurrentBillId] = useState<string | null>(null);
+  const [lastMeter, setLastMeter] = useState("");
+  const [nextMeter, setNextMeter] = useState("");
+  const [nextBillNumber, setNextBillNumber] = useState(1);
+  const [businessDetails, setBusinessDetails] = useState<BusinessDetails>({
+    ownerName: "Ragu",
+    shopName: "Ragu Auto Works",
+    shopAddress: "No 2B Vijaya Mangalam Sandagatai Road, Erode-638856",
+    phoneNumbers: "8526808766, 8438597688",
+    instagramId: "@dr._duker",
+  });
+
+  useEffect(() => {
+    const initBusiness = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("business_details");
+        if (stored) {
+          setBusinessDetails(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.error("Failed to load business details", err);
+      }
+    };
+    initBusiness();
+  }, []);
+
+  const updateBusinessDetails = async (details: BusinessDetails) => {
+    try {
+      setBusinessDetails(details);
+      await AsyncStorage.setItem("business_details", JSON.stringify(details));
+    } catch (err) {
+      console.error("Failed to save business details", err);
+      throw err;
+    }
+  };
+
+  React.useEffect(() => {
+    const fetchNextBillNumber = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("offline_bills");
+        if (stored) {
+          const bills = JSON.parse(stored);
+          const maxNum = bills.reduce((max: number, bill: any) => {
+            const num = parseInt(bill.id);
+            return !isNaN(num) ? Math.max(max, num) : max;
+          }, 0);
+          setNextBillNumber(maxNum + 1);
+        }
+      } catch (err) {
+        console.error("Error fetching bill sequence", err);
+      }
+    };
+    fetchNextBillNumber();
+  }, [currentBillId]);
+
+  const addToCart = (part: SparePart) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === part.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === part.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...part, quantity: 1 }];
+    });
+  };
+
+  const decreaseQuantity = (id: string) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === id);
+      if (existing && existing.quantity > 1) {
+        return prev.map((item) =>
+          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+        );
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const addLabour = (item: LabourItem) => {
+    setLabourItems((prev) => [...prev, item]);
+  };
+
+  const removeLabour = (id: string) => {
+    setLabourItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updatePartPrice = (id: string, price: number) => {
+    setCart((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, price } : item))
+    );
+  };
+
+  const updateLabourPrice = (id: string, price: number) => {
+    setLabourItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, price } : item))
+    );
+  };
+
+  const finalizeBill = async () => {
+    const billId = currentBillId || nextBillNumber.toString();
+    const billData = {
+      id: billId,
+      items: { cart, labourItems },
+      advance: advanceAmount,
+      total: grandTotal,
+      finalBalance: finalBalance,
+      customerName,
+      vehicleNumber,
+      lastMeter,
+      nextMeter,
+      date: new Date().toISOString(),
+    };
+
+    try {
+      // Save locally first for offline support
+      const existingBillsString = await AsyncStorage.getItem('offline_bills');
+      let bills = existingBillsString ? JSON.parse(existingBillsString) : [];
+      
+      const existingIndex = bills.findIndex((b: any) => b.id === billId);
+      if (existingIndex >= 0) {
+        // Update existing bill
+        bills[existingIndex] = billData;
+        console.log('Bill updated locally');
+      } else {
+        // Add new bill
+        bills.push(billData);
+        console.log('Bill saved locally');
+      }
+      
+      await AsyncStorage.setItem('offline_bills', JSON.stringify(bills));
+      setCurrentBillId(billId);
+    } catch (localErr) {
+      console.error('Failed to save bill locally', localErr);
+      throw new Error('Failed to save bill locally');
+    }
+
+    try {
+      const baseUrl = Platform.OS === 'web' ? '' : 'http://localhost:5000';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(`${baseUrl}/api/bills`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(billData),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Failed to save bill to server');
+      }
+      
+      console.log('Bill synced to server successfully');
+    } catch (err) {
+      console.log('Saved offline. Server sync failed:', err);
+      // We don't throw here to allow the app to proceed offline
+    }
+  };
+
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+
+  const labourTotal = labourItems.reduce((sum, item) => sum + item.price, 0);
+
+  const grandTotal = cartTotal + labourTotal;
+  const finalBalance = grandTotal - advanceAmount;
+
+  const resetGarage = () => {
+    setCart([]);
+    setLabourItems([{ id: "labour-1", name: "Labour", price: 300 }]);
+    setAdvanceAmount(0);
+    setCustomerName("");
+    setVehicleNumber("");
+    setLastMeter("");
+    setNextMeter("");
+    setCurrentBillId(null);
+  };
+  
+  const loadBill = (bill: any) => {
+    setCart(bill.items.cart || []);
+    setLabourItems(bill.items.labourItems || []);
+    setAdvanceAmount(bill.advance || 0);
+    setCustomerName(bill.customerName || "");
+    setVehicleNumber(bill.vehicleNumber || "");
+    setLastMeter(bill.lastMeter || "");
+    setNextMeter(bill.nextMeter || "");
+    setCurrentBillId(bill.id);
+  };
+
+  return (
+    <GarageContext.Provider
+      value={{
+        cart,
+        addToCart,
+        decreaseQuantity,
+        removeFromCart,
+        clearCart,
+        cartTotal,
+        labourItems,
+        labourTotal,
+        addLabour,
+        removeLabour,
+        updatePartPrice,
+        updateLabourPrice,
+        finalizeBill,
+        grandTotal,
+        advanceAmount,
+        setAdvanceAmount,
+        finalBalance,
+        customerName,
+        setCustomerName,
+        vehicleNumber,
+        setVehicleNumber,
+        resetGarage,
+        currentBillId,
+        lastMeter,
+        setLastMeter,
+        nextMeter,
+        setNextMeter,
+        loadBill,
+        nextBillNumber,
+        businessDetails,
+        updateBusinessDetails,
+      }}
+    >
+      {children}
+    </GarageContext.Provider>
+  );
+}
+
+export function useGarage(): GarageContextType {
+  const ctx = useContext(GarageContext);
+  if (!ctx) throw new Error("useGarage must be used within GarageProvider");
+  return ctx;
+}
